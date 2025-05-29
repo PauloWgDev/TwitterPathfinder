@@ -85,11 +85,6 @@ def scrape_mentions(driver, username):
                 EC.element_to_be_clickable((By.LINK_TEXT, "Replies"))
             )
             replies_tab.click()
-            time.sleep(2)  # Wait while in Replies
-
-            # Switch back to Tweets tab
-
-            wait_for_tweets(driver)
             time.sleep(WAIT_TIME)
         except Exception as e:
             print(f"⚠️ Failed to switch tabs: {e}")
@@ -111,7 +106,7 @@ def scrape_mentions(driver, username):
             print(f"    ↳ Mentions: {found_mentions}")
         mentions.update(found_mentions)
 
-    return list(mentions)
+    return list(mentions)[:10]
 
 # ---------- RECURSIVE CRAWLER ----------
 def crawl_mentions_network(start_user, max_depth=MAX_DEPTH, max_tweets=MAX_TWEETS):
