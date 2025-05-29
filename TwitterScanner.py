@@ -85,13 +85,10 @@ def scrape_mentions(driver, username):
                 EC.element_to_be_clickable((By.LINK_TEXT, "Replies"))
             )
             replies_tab.click()
-            time.sleep(3)  # Wait while in Replies
+            time.sleep(2)  # Wait while in Replies
 
             # Switch back to Tweets tab
-            tweets_tab = WebDriverWait(driver, 5).until(
-                EC.element_to_be_clickable((By.LINK_TEXT, "Posts"))  # may be "Tweets" or "Posts" depending on UI
-            )
-            tweets_tab.click()
+
             wait_for_tweets(driver)
             time.sleep(WAIT_TIME)
         except Exception as e:
