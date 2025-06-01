@@ -3,16 +3,19 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from datetime import datetime
 import time
 import re
 import json
 import os
 
+
 # ---------- CONFIGURATION ----------
-MAX_DEPTH = 4
-MAX_TWEETS = 10
-WAIT_TIME = 2
-USERS_PER_PART = 30  # Save every 100 visited users
+MAX_DEPTH = 5
+MAX_TWEETS = 30
+WAIT_TIME = 0.3
+USERS_PER_PART = 30                 # After this ammount of users it will save the progress
+MAX_MENTIONS_PER_ACCOUNT = 7
 
 # ---------- GLOBALS ----------
 stop_requested = False  # Set this True to stop crawling gracefully (e.g., from another thread or manually in notebook)
@@ -21,10 +24,11 @@ stop_requested = False  # Set this True to stop crawling gracefully (e.g., from 
 def extract_mentions(text):
     return re.findall(r"@\w+", text)
 
-def save_partial(edges, start_user, max_depth, max_tweets, part_num):
-    os.makedirs("mention_networks", exist_ok=True)
-    json_name = f"{start_user}_{max_depth}_{max_tweets}_part{part_num}.json"
-    json_path = os.path.join("mention_networks", json_name)
+def save_partial(edges, start_user, max_depth, max_tweets, start_datetime):
+    directory = "mention_networks/"
+    os.makedirs(directory, exist_ok=True)
+    json_name = f"{start_user}_{max_depth}_{max_tweets}-{start_datetime.strftime("%d_%m_%Y-%H-%M-%S")}.json"
+    json_path = os.path.join(directory, json_name)
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(edges, f, indent=2)
     print(f"\n💾 Saved partial mention graph to {json_path}")
@@ -99,14 +103,16 @@ def scrape_mentions(driver, username):
     tweets_texts = list(tweet_texts.values())[:MAX_TWEETS]
     print(f"🧪 Found {len(tweets_texts)} unique tweet articles on @{username}")
 
-    mentions = set()
-    for i, text in enumerate(tweets_texts):
-        found_mentions = extract_mentions(text)
-        if found_mentions:
-            print(f"    ↳ Mentions: {found_mentions}")
-        mentions.update(found_mentions)
+    mentions = []
 
-    return list(mentions)[:10]
+    for text in tweets_texts:
+        found_mentions = extract_mentions(text)
+        for m in found_mentions:
+            if m not in mentions:
+                mentions.append(m)
+
+    return mentions[:MAX_MENTIONS_PER_ACCOUNT]
+
 
 # ---------- RECURSIVE CRAWLER ----------
 def crawl_mentions_network(start_user, max_depth=MAX_DEPTH, max_tweets=MAX_TWEETS):
@@ -115,10 +121,10 @@ def crawl_mentions_network(start_user, max_depth=MAX_DEPTH, max_tweets=MAX_TWEET
     driver = login_to_twitter()
     visited = set()
     edges = []
-    part_counter = 1
+    start_datetime = datetime.now()
 
     def dfs(user, depth):
-        nonlocal part_counter
+        nonlocal start_datetime
         if stop_requested:
             print("⚠️ Stop requested, aborting DFS.")
             return
@@ -130,8 +136,7 @@ def crawl_mentions_network(start_user, max_depth=MAX_DEPTH, max_tweets=MAX_TWEET
         # Periodic saving
         if len(visited) % USERS_PER_PART == 0:
             print(f"\n⏳ Reached {len(visited)} visited users, saving partial results...")
-            save_partial(edges, start_user, max_depth, max_tweets, part_counter)
-            part_counter += 1
+            save_partial(edges, start_user, max_depth, max_tweets, start_datetime)
 
         try:
             mentions = scrape_mentions(driver, user)
@@ -156,13 +161,13 @@ def crawl_mentions_network(start_user, max_depth=MAX_DEPTH, max_tweets=MAX_TWEET
         print(f"❌ Unexpected exception: {e}")
 
     print("\n⏳ Saving final results...")
-    save_partial(edges, start_user, max_depth, max_tweets, part_counter)
+    save_partial(edges, start_user, max_depth, max_tweets, start_datetime)
     driver.quit()
     return edges
 
 # ---------- MAIN ----------
 if __name__ == "__main__":
-    start_username = "WgPaulo"  # Replace with your starting username
+    start_username = "wizkhalifa"  # Replace with your starting username
 
     try:
         mention_edges = crawl_mentions_network(start_username)

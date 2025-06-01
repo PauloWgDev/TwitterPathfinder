@@ -6,3 +6,4 @@ data/*.csv
 
 # Ignore Sensitive Data
 Tokens.txt
+chromedriver
